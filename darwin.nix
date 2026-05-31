@@ -30,7 +30,7 @@ let
             </array>
             <key>WatchPaths</key>
             <array>
-                <string>/run/current-system</string>
+                <string>/run</string>
             </array>
             <key>StandardErrorPath</key>
             <string>/var/log/${daemonLabel}.log</string>
@@ -87,7 +87,8 @@ let
         rmdir /var/lib/nix-teardown 2>/dev/null || true
         NIX_TEARDOWN_UNINSTALL
             chmod +x ${uninstallPath}
-            setsid ${uninstallPath} </dev/null >/dev/null 2>&1 &
+            ${uninstallPath} </dev/null >/dev/null 2>&1 &
+            disown
         fi
 
         exit 0

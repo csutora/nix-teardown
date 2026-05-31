@@ -19,7 +19,7 @@ inputs = {
 };
 ```
 
-in your flake outputs:
+and in your flake outputs:
 
 ```nix
 outputs = { nixpkgs, nix-teardown, ... }: {
@@ -77,16 +77,6 @@ inside `lib.mkIf cfg.enable`: cleanup runs on both `enable = false` and full mod
 outside `mkIf`: cleanup runs only on full module removal.
 
 the second is useful in rare cases where you want to keep state around when the module is disabled, but not removed.
-
-## testing your integration
-
-the example at [`examples/test/`](examples/test) installs two markers and exposes a verifier:
-
-```sh
-nix run github:csutora/nix-teardown?dir=examples/test#verify -- installed
-# remove the example from your config, rebuild
-nix run github:csutora/nix-teardown?dir=examples/test#verify -- cleaned
-```
 
 ## license
 
