@@ -28,7 +28,7 @@
                 '')
             ];
 
-            config.system.activationScripts.nix-teardown-test.text = ''
+            config.system.activationScripts.postActivation.text = ''
                 mkdir -p /tmp/nix-teardown-test
                 touch ${tmpMarker}
 

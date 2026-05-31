@@ -28,8 +28,6 @@ let
                 <string>/bin/bash</string>
                 <string>${watcherPath}</string>
             </array>
-            <key>RunAtLoad</key>
-            <true/>
             <key>WatchPaths</key>
             <array>
                 <string>/run/current-system</string>
@@ -118,11 +116,8 @@ in
                         type = lib.types.str;
                         description = ''
                             globally unique identifier for this entry. recommended
-                            convention: your flake's url, e.g. "github:user/repo".
-                            for multiple entries from the same flake, append a suffix
-                            (e.g. "github:user/repo#purpose"). on-disk identity is a
-                            short hash of this string, so the same id always maps to
-                            the same on-disk directory across rebuilds.
+                            convention: your flake's url, e.g. "https://github.com/me/my-app".
+                            see https://github.com/csutora/nix-teardown for details
                         '';
                     };
                     cleanup = lib.mkOption {
@@ -141,26 +136,28 @@ in
     };
 
     config = {
-        system.activationScripts."nix-teardown-${slug}".text = ''
-            set -eu
+        system.activationScripts.postActivation.text = ''
+            (
+                set -eu
 
-            mkdir -p ${instanceDir}
-            mkdir -p ${entriesDir}
+                mkdir -p ${instanceDir}
+                mkdir -p ${entriesDir}
 
-            ${entryActivation}
+                ${entryActivation}
 
-            mkdir -p ${selfEntryDir}
-            printf '%s' "$systemConfig" > ${selfEntryDir}/systemConfig
+                mkdir -p ${selfEntryDir}
+                printf '%s' "$systemConfig" > ${selfEntryDir}/systemConfig
 
-            cp -f ${watcherFile} ${watcherPath}
-            chmod +x ${watcherPath}
+                cp -f ${watcherFile} ${watcherPath}
+                chmod +x ${watcherPath}
 
-            cp -f ${plistFile} ${daemonPlist}
-            chmod 644 ${daemonPlist}
-            chown root:wheel ${daemonPlist}
+                cp -f ${plistFile} ${daemonPlist}
+                chmod 644 ${daemonPlist}
+                chown root:wheel ${daemonPlist}
 
-            launchctl bootout system ${daemonPlist} 2>/dev/null || true
-            launchctl bootstrap system ${daemonPlist}
+                launchctl bootout system ${daemonPlist} 2>/dev/null || true
+                launchctl bootstrap system ${daemonPlist}
+            ) || echo "[nix-teardown ${slug}] activation failed" >&2
         '';
     };
 }
