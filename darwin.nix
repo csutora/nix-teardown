@@ -8,10 +8,12 @@ let
     entriesDir = "${instanceDir}/entries";
     watcherPath = "${instanceDir}/watcher.sh";
     uninstallPath = "${instanceDir}/uninstall.sh";
+    uninstallPlistPath = "${instanceDir}/uninstall.plist";
     selfEntryName = "__nix-teardown-self__";
     selfEntryDir = "${entriesDir}/${selfEntryName}";
     daemonLabel = "nix-teardown.watcher.${slug}";
     daemonPlist = "/Library/LaunchDaemons/${daemonLabel}.plist";
+    uninstallLabel = "nix-teardown.uninstall.${slug}";
 
     entryDirId = entry:
         builtins.substring 0 12 (builtins.hashString "sha256" entry.id);
@@ -43,7 +45,13 @@ let
     watcherFile = pkgs.writeShellScript "nix-teardown-watcher-${slug}" ''
         set -u
 
+        instance=${instanceDir}
         entries=${entriesDir}
+
+        if [ -e "$instance/.activating" ]; then
+            exit 0
+        fi
+
         current=$(readlink /run/current-system 2>/dev/null || echo "")
 
         if [ -z "$current" ] || [ ! -d "$entries" ]; then
@@ -85,10 +93,35 @@ let
         rm -f ${daemonPlist}
         rm -rf ${instanceDir}
         rmdir /var/lib/nix-teardown 2>/dev/null || true
+        launchctl bootout system/${uninstallLabel}
         NIX_TEARDOWN_UNINSTALL
             chmod +x ${uninstallPath}
-            ${uninstallPath} </dev/null >/dev/null 2>&1 &
-            disown
+
+            cat > ${uninstallPlistPath} <<'NIX_TEARDOWN_UNINSTALL_PLIST'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>Label</key>
+            <string>${uninstallLabel}</string>
+            <key>ProgramArguments</key>
+            <array>
+                <string>/bin/bash</string>
+                <string>${uninstallPath}</string>
+            </array>
+            <key>RunAtLoad</key>
+            <true/>
+            <key>StandardErrorPath</key>
+            <string>/var/log/${uninstallLabel}.log</string>
+            <key>StandardOutPath</key>
+            <string>/var/log/${uninstallLabel}.log</string>
+        </dict>
+        </plist>
+        NIX_TEARDOWN_UNINSTALL_PLIST
+            chown root:wheel ${uninstallPlistPath}
+            chmod 644 ${uninstallPlistPath}
+
+            launchctl bootstrap system ${uninstallPlistPath}
         fi
 
         exit 0
@@ -143,6 +176,7 @@ in
 
                 mkdir -p ${instanceDir}
                 mkdir -p ${entriesDir}
+                touch ${instanceDir}/.activating
 
                 ${entryActivation}
 
@@ -158,6 +192,8 @@ in
 
                 launchctl bootout system ${daemonPlist} 2>/dev/null || true
                 launchctl bootstrap system ${daemonPlist}
+
+                rm -f ${instanceDir}/.activating
             ) || echo "[nix-teardown ${slug}] activation failed" >&2
         '';
     };
