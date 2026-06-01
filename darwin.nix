@@ -45,14 +45,8 @@ let
     watcherFile = pkgs.writeShellScript "nix-teardown-watcher-${slug}" ''
         set -u
 
-        instance=${instanceDir}
         entries=${entriesDir}
-
-        if [ -e "$instance/.activating" ]; then
-            exit 0
-        fi
-
-        current=$(readlink /run/current-system 2>/dev/null || echo "")
+        current=$(realpath /nix/var/nix/profiles/system 2>/dev/null || echo "")
 
         if [ -z "$current" ] || [ ! -d "$entries" ]; then
             exit 0
@@ -176,7 +170,6 @@ in
 
                 mkdir -p ${instanceDir}
                 mkdir -p ${entriesDir}
-                touch ${instanceDir}/.activating
 
                 ${entryActivation}
 
@@ -192,8 +185,6 @@ in
 
                 launchctl bootout system ${daemonPlist} 2>/dev/null || true
                 launchctl bootstrap system ${daemonPlist}
-
-                rm -f ${instanceDir}/.activating
             ) || echo "[nix-teardown ${slug}] activation failed" >&2
         '';
     };
